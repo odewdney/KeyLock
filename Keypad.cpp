@@ -44,15 +44,17 @@ void keypadEventClass::run()
 		int8_t key = wg.getCode();
 		if (key >= 0 && key <= 9)
 		{
-			if (codecnt < 6)
-			{
-				code = (code*10) + key;
-			}
+			code = ((code * 10) + key) % 100000000;
+			if (codecnt < 8)
+				codecnt++;
 		}
 		else if (key == 13)
 		{
-			if ( KeyStore.CheckCode(code) )
-				OpenDoor();
+			if (codecnt >= 4)
+			{
+				if (KeyStore.CheckCode(code + codecnt * 100000000))
+					OpenDoor();
+			}
 			code = 0;
 			codecnt = 0;
 		}

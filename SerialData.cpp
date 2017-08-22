@@ -111,6 +111,15 @@ byte SerialDataEvent::ProcessCommand()
 				Serial.println(F("No clock"));
 			return 0;
 		}
+		else if (cmd[1] == 'n')
+		{
+			tmElements_t x;
+			breakTime(now(), x);
+			char b[50];
+			sprintf_P(b, PSTR("%d-%02d-%02d %02d:%02d:%02d"), tmYearToCalendar(x.Year), x.Month, x.Day, x.Hour, x.Minute, x.Second);
+			Serial.println(b);
+			return 0;
+		}
 		else if (cmd[1] == 'w')
 		{
 			tmElements_t x;
@@ -191,6 +200,10 @@ byte SerialDataEvent::ProcessCommand()
 			unsigned long cardId = atol(cmd + arg);
 			if (cardId == 0)
 				return 1;
+			int l = strlen(cmd + arg);
+			if (l < 4)
+				return 1;
+			cardId += 100000000 * l;
 			KeyStore.AddCode(cardId);
 			return 0;
 		}
@@ -199,6 +212,10 @@ byte SerialDataEvent::ProcessCommand()
 			unsigned long cardId = atol(cmd + arg);
 			if (cardId == 0)
 				return 1;
+			int l = strlen(cmd + arg);
+			if (l < 4)
+				return 1;
+			cardId += 100000000 * l;
 			KeyStore.RemoveCode(cardId);
 			return 0;
 		}
@@ -212,6 +229,11 @@ byte SerialDataEvent::ProcessCommand()
 				uint32_t cardId = KeyStore.GetCode(n);
 				Serial.println(cardId);
 			}
+			return 0;
+		}
+		else if (cmd[1] == 'c')
+		{
+			KeyStore.Clear();
 			return 0;
 		}
 	}

@@ -83,8 +83,8 @@ void CodeStore::AddCode(unsigned long cardId)
 		return;
 	for (n = 0; n < count; n++)
 	{
-		uint32_t cardId = GetCode(n);
-		if (cardId == 0 || cardId == 0xffffffffU)
+		uint32_t cardIdN = GetCode(n);
+		if (cardIdN == 0 || cardIdN == 0xffffffffU)
 		{
 			PutCode(n, cardId);
 			return;
@@ -102,7 +102,14 @@ void CodeStore::RemoveCode(unsigned long cardId)
 	uint8_t index = GetCodeIndex(cardId);
 	if (index != 0xff)
 	{
-		PutCode(index, 0);
+		uint8_t count = GetCount();
+		count--;
+		if (count > 0 && index != count)
+		{
+			unsigned long endCode = GetCode(count);
+			PutCode(index, endCode);
+		}
+		SetCount(count);
 	}
 }
 

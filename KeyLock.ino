@@ -4,13 +4,15 @@
 //#include "DoorLock.h"
 //#include <sha1.h>
 #include <Eeprom24C32_64.h>
-//#include <Time.h>
-//#include <DS1307RTC.h>
+#include <Time.h>
+#include <TimeAlarms.h>
+#include <DS1307RTC.h>
 #include <SCoop.h>
 #include "KeyLock.h"
 
-defineTimerRun(refreshClock, 60 * 60 * 1000)
+defineTimerRun(refreshAlarm,  1000)
 {
+	Alarm.delay(0);
 }
 
 
@@ -66,9 +68,122 @@ void test()
 }
 */
 
+time_t getTinyRTCTime()
+{
+	time_t t = RTC.get();
+	return t;
+}
+
+void Midnight()
+{
+	Serial.print("alarm-midnight:");
+	Serial.println(now());
+}
+void Morning()
+{
+	Serial.print("alarm-morning:");
+	Serial.println(now());
+}
+void Afternoon()
+{
+	Serial.print("alarm-afternoon:");
+	Serial.println(now());
+}
+
+
+int16_t fromBase32(char*input, int8_t *out, int16_t len)
+{
+	int16_t result = 0;
+	int16_t buffer;
+	int8_t bitsLeft = 0;
+
+	for (int16_t i = 0; result < len; i++)
+	{
+		byte ch = input[i];
+		if (ch == 0)
+			break;
+		// ignoring some characters: ' ', '\t', '\r', '\n', '='
+		if (ch == 0xA0 || ch == 0x09 || ch == 0x0A || ch == 0x0D || ch == 0x3D) continue;
+
+		// recovering mistyped: '0' -> 'O', '1' -> 'L', '8' -> 'B'
+		if (ch == 0x30) { ch = 0x4F; }
+		else if (ch == 0x31) { ch = 0x4C; }
+		else if (ch == 0x38) { ch = 0x42; }
+
+
+		// look up one base32 symbols: from 'A' to 'Z' or from 'a' to 'z' or from '2' to '7'
+		if ((ch >= 0x41 && ch <= 0x5A) || (ch >= 0x61 && ch <= 0x7A)) { ch = ((ch & 0x1F) - 1); }
+		else if (ch >= 0x32 && ch <= 0x37) { ch -= (0x32 - 26); }
+		else { return 0; }
+
+		buffer <<= 5;
+		buffer |= ch;
+		bitsLeft += 5;
+		if (bitsLeft >= 8)
+		{
+			out[result] = (unsigned char)((buffer >> (bitsLeft - 8)) & 0xFF);
+			result++;
+			bitsLeft -= 8;
+		}
+	}
+	return result;
+}
+
+char base32StandardAlphabet[] = { "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567" };
+
+int16_t toBase32(int8_t *in, int16_t len, char* out)
+{
+	int16_t buffer = *in;
+	int16_t next = 1;
+	int8_t bitsLeft = 8;
+	int16_t result = 0;
+
+	while (bitsLeft > 0 || next < len)
+	{
+		if (bitsLeft < 5)
+		{
+			if (next < len)
+			{
+				buffer <<= 8;
+				buffer |= in[next] & 0xff;
+				next++;
+				bitsLeft += 8;
+			}
+			else
+			{
+				int8_t pad = 5 - bitsLeft;
+				buffer <<= pad;
+				bitsLeft += pad;
+			}
+		}
+		int8_t index = (buffer >> (bitsLeft - 5)) & 0x1f;
+		bitsLeft -= 5;
+		out[result++] = base32StandardAlphabet[index];
+	}
+	out[result] = 0;
+	return result;
+}
+
 void setup()
 {
 	Serial.begin(115200);
+
+	setSyncProvider(getTinyRTCTime);
+
+	Alarm.alarmRepeat(9, 19, 0, Midnight);
+
+	Alarm.alarmRepeat(0, 0, 5, Midnight);
+	Alarm.alarmRepeat(10, 0, 5, Morning);
+	Alarm.alarmRepeat(16, 0, 5, Afternoon);
+
+	char buf[30];
+	char *in = "1234";
+	toBase32((int8_t*)in, 4, buf);
+	Serial.println(buf);
+	char buf2[30];
+	int l = fromBase32(buf, (int8_t*)buf2, 30);
+	buf2[l] = 0;
+	Serial.println(buf2);
 
   /* add setup code here */
 	mySCoop.start();
