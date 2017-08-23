@@ -13,7 +13,7 @@
 class SerialDataEvent : public SCoopEvent
 {
 
-	char cmd[20];
+	char cmd[40];
 	byte cmdCnt = 0;
 	SCoopDelay logout;
 

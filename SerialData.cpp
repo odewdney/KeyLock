@@ -13,6 +13,7 @@
 #include <OneWire.h>
 
 #include "CardData.h"
+#include "otp.h"
 
 OneWire oneWire(ONE_WIRE);
 DallasTemperature tempSensor(&oneWire);
@@ -103,9 +104,7 @@ byte SerialDataEvent::ProcessCommand()
 			{
 				if (!f)
 					Serial.println(F("Clock stopped"));
-				char b[50];
-				sprintf_P(b, PSTR("%d-%02d-%02d %02d:%02d:%02d"), tmYearToCalendar(x.Year), x.Month, x.Day, x.Hour, x.Minute, x.Second);
-				Serial.println(b);
+				fprintf_P(&uartout, PSTR("%d-%02d-%02d %02d:%02d:%02d\n"), tmYearToCalendar(x.Year), x.Month, x.Day, x.Hour, x.Minute, x.Second);
 			}
 			else
 				Serial.println(F("No clock"));
@@ -115,9 +114,7 @@ byte SerialDataEvent::ProcessCommand()
 		{
 			tmElements_t x;
 			breakTime(now(), x);
-			char b[50];
-			sprintf_P(b, PSTR("%d-%02d-%02d %02d:%02d:%02d"), tmYearToCalendar(x.Year), x.Month, x.Day, x.Hour, x.Minute, x.Second);
-			Serial.println(b);
+			fprintf_P(&uartout, PSTR("%d-%02d-%02d %02d:%02d:%02d\n"), tmYearToCalendar(x.Year), x.Month, x.Day, x.Hour, x.Minute, x.Second);
 			return 0;
 		}
 		else if (cmd[1] == 'w')
@@ -146,10 +143,15 @@ byte SerialDataEvent::ProcessCommand()
 		}
 		else if (cmd[1] == 't')
 		{
-			tempSensor.requestTemperaturesByIndex(0);
-			float t = tempSensor.getTempCByIndex(0);
-			Serial.print(F("Temp="));
-			Serial.println(t);
+			DeviceAddress deviceAddress;
+			tempSensor.getAddress(deviceAddress, 0);
+			tempSensor.requestTemperaturesByAddress(deviceAddress);
+			int16_t temp = tempSensor.getTemp(deviceAddress);
+			int8_t t = temp >> 7;
+			//tempSensor.requestTemperaturesByIndex(0);
+			//float t = tempSensor.getTempCByIndex(0);
+
+			fprintf_P(&uartout, PSTR("Temp=%d\n"),t);
 			return 0;
 		}
 
@@ -183,8 +185,7 @@ byte SerialDataEvent::ProcessCommand()
 		else if (cmd[1] == 'l')
 		{
 			uint8_t cnt = CardStore.GetCount();
-			Serial.print(F("Count="));
-			Serial.println(cnt);
+			fprintf_P(&uartout, PSTR("Count=%d\n"), cnt);
 			for (uint8_t n = 0; n < cnt; n++)
 			{
 				uint32_t cardId = CardStore.GetCode(n);
@@ -222,8 +223,7 @@ byte SerialDataEvent::ProcessCommand()
 		else if (cmd[1] == 'l')
 		{
 			uint8_t cnt = KeyStore.GetCount();
-			Serial.print(F("Count="));
-			Serial.println(cnt);
+			fprintf_P(&uartout, PSTR("Count=%d\n"), cnt);
 			for (uint8_t n = 0; n < cnt; n++)
 			{
 				uint32_t cardId = KeyStore.GetCode(n);
@@ -234,6 +234,15 @@ byte SerialDataEvent::ProcessCommand()
 		else if (cmd[1] == 'c')
 		{
 			KeyStore.Clear();
+			return 0;
+		}
+	}
+	else if (cmd[0] == 'o')
+	{
+		if (cmd[1] == 's')
+		{
+			if (strlen(cmd+arg) > 32 ) return 1;
+			OtpSave(cmd + arg);
 			return 0;
 		}
 	}

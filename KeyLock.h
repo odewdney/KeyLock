@@ -20,3 +20,5 @@ uint8_t GetCardCount();
 
 
 bool CheckCode(int32_t code);
+
+extern FILE uartout;

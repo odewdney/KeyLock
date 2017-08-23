@@ -6,6 +6,7 @@
 #include <Wiegand.h>
 #include "KeyLock.h"
 #include "CardData.h"
+#include "otp.h"
 
 WIEGAND wg;
 
@@ -54,6 +55,10 @@ void keypadEventClass::run()
 			{
 				if (KeyStore.CheckCode(code + codecnt * 100000000))
 					OpenDoor();
+				else if (OtpCheck(code + codecnt * 100000000))
+				{
+					OpenDoor();
+				}
 			}
 			code = 0;
 			codecnt = 0;
