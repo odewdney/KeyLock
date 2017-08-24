@@ -4,8 +4,10 @@
 
 #include "otp.h"
 #include <sha1.h>
+#include <EEPROM.h>
+#include "KeyLock.h"
 
-int16_t fromBase32(char*input, uint8_t *out, int16_t len)
+int16_t fromBase32(const char*input, uint8_t *out, int16_t len)
 {
 	int16_t result = 0;
 	uint16_t buffer;
@@ -45,7 +47,7 @@ int16_t fromBase32(char*input, uint8_t *out, int16_t len)
 
 //const char base32StandardAlphabet[] = { "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567" };
 
-int16_t toBase32(uint8_t *in, int16_t len, char* out)
+int16_t toBase32(const uint8_t *in, int16_t len, char* out)
 {
 	uint16_t buffer = *in;
 	uint16_t next = 1;
@@ -78,7 +80,7 @@ int16_t toBase32(uint8_t *in, int16_t len, char* out)
 	return result;
 }
 
-void printHash(uint8_t* hash, uint8_t len)
+void printHash(const uint8_t* hash, uint8_t len)
 {
 	const static char hex[] = "0123456789abcdef";
 	uint8_t i;
@@ -90,14 +92,14 @@ void printHash(uint8_t* hash, uint8_t len)
 	Serial.println();
 }
 
-uint32_t GetTOTPCode(char*key, time_t time)
+uint32_t GetTOTPCode(const char*key, time_t time)
 {
 	uint8_t keyBytes[20];
 	int16_t len = fromBase32(key, keyBytes, 20);
 
 	return GetTOTPCode(keyBytes, len, time);
 }
-uint32_t GetTOTPCode(uint8_t* key, uint8_t keylen, time_t time)
+uint32_t GetTOTPCode(const uint8_t* key, uint8_t keylen, time_t time)
 {
 	time = time / 30;
 	//	Serial.print("time=");
@@ -109,7 +111,7 @@ uint32_t GetTOTPCode(uint8_t* key, uint8_t keylen, time_t time)
 	return GetTOTPCode(key, keylen, data, 8);
 }
 
-uint32_t GetTOTPCode(uint8_t* key, uint8_t keylen, uint8_t *data, uint8_t datalen)
+uint32_t GetTOTPCode(const uint8_t* key, uint8_t keylen, const uint8_t *data, uint8_t datalen)
 {
 	Sha1.initHmac(key, keylen);
 	Sha1.write(data, datalen);
@@ -129,21 +131,107 @@ uint32_t GetTOTPCode(uint8_t* key, uint8_t keylen, uint8_t *data, uint8_t datale
 
 uint8_t key[20];
 
-void OtpSave(char*b32)
+void OtpSave(const char*b32)
 {
 	fromBase32(b32, key, 20);
+	EEPROM.put(90, key);
 }
+
+
+struct timeWindow
+{
+	time_t start;
+	time_t end;
+};
+
+bool SummerTime(time_t t)
+{
+	tmElements_t e;
+	breakTime(t, e);
+	return SummerTime(e);
+}
+
+bool SummerTime(const tmElements_t &e)
+{
+	if (e.Month <3 || e.Month >10)
+		return false;
+	if (e.Month > 3 && e.Month < 10)
+		return true;
+	const static uint8_t tzHours = 0;
+	if (e.Month == 3 && (e.Hour + 24 * e.Day) >= (1 + tzHours + 24 * (31 - (5 * e.Year / 4 + 4) % 7)))
+		return true;
+	if (e.Month == 10 && (e.Hour + 24 * e.Day)<(1 + tzHours + 24 * (31 - (5 * e.Year / 4 + 1) % 7)))
+		return true;
+	return false;
+}
+
+void OtpInit()
+{
+	EEPROM.get(90, key);
+	time_t t = now();
+	t = previousMidnight(t);
+
+	for (int8_t s = -14; s <= 0; s++)
+	{
+		struct timeWindow w;
+		w.start = t + s * SECS_PER_DAY + 15 * SECS_PER_HOUR;
+		if (SummerTime(w.start)) // convert to gmt
+			w.start -= 3600;
+		for (int8_t e = 0; (e - s) <= 14; e++)
+		{
+			w.end = t + e * SECS_PER_DAY + 11 * SECS_PER_HOUR;
+			if (SummerTime(w.end))
+				w.end -= 3600;
+			uint32_t code = GetTOTPCode(key, 20, (uint8_t*)&w, 8);
+			fprintf_P(&uartout, PSTR("%d %d %ld\n"), s, e, code);
+		}
+	}
+}
+
+struct timeWindow cacheWindow = { 0, 0 };
+uint32_t cacheCode = 0;
 
 bool OtpCheck(uint32_t code)
 {
 	if ((code / 100000000) != 6)
 		return false;
 	code = code % 1000000;
-	time_t t = now() - 3600;
+	time_t t = now();
 	for (int8_t n = -2; n <= 2; n++)
 	{
 		if (GetTOTPCode(key, 20, t + (30 * n)) == code)
 			return true;
+	}
+
+	if (t > cacheWindow.start && t < cacheWindow.end && code == cacheCode)
+		return true;
+
+	fprintf_P(&uartout, PSTR("looking for code %ld"), code);
+
+	EEPROM.get(90, key);
+	t = previousMidnight(t);
+
+	for (int8_t s = 0; s >= -14; s--)
+	{
+		struct timeWindow w;
+		w.start = t + s * SECS_PER_DAY + 15 * SECS_PER_HOUR;
+		if (SummerTime(w.start)) // convert to gmt
+			w.start -= 3600;
+		for (int8_t e = 0; (e - s) <= 14; e++)
+		{
+			w.end = t + e * SECS_PER_DAY + 11 * SECS_PER_HOUR;
+			if (SummerTime(w.end))
+				w.end -= 3600;
+			uint32_t OTPcode = GetTOTPCode(key, 20, (uint8_t*)&w, 8);
+			fprintf_P(&uartout, PSTR("%d %d %ld\n"), s, e, OTPcode);
+			if (OTPcode == code)
+			{
+				Serial.println(F("FOund"));
+				cacheWindow = w;
+				cacheCode = code;
+				return true;
+			}
+		}
 	}
 	return false;
 }

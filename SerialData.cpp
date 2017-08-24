@@ -61,6 +61,18 @@ void PrintMsg(byte b)
 	}
 }
 
+void printDateTime(tmElements_t&x)
+{
+	fprintf_P(&uartout, PSTR("%d-%02d-%02d %02d:%02d:%02d\n"), tmYearToCalendar(x.Year), x.Month, x.Day, x.Hour, x.Minute, x.Second);
+}
+
+void printDateTime(time_t t)
+{
+	tmElements_t e;
+	breakTime(t, e);
+	printDateTime(e);
+}
+
 byte SerialDataEvent::ProcessCommand()
 {
 	byte arg, nextarg;
@@ -104,7 +116,7 @@ byte SerialDataEvent::ProcessCommand()
 			{
 				if (!f)
 					Serial.println(F("Clock stopped"));
-				fprintf_P(&uartout, PSTR("%d-%02d-%02d %02d:%02d:%02d\n"), tmYearToCalendar(x.Year), x.Month, x.Day, x.Hour, x.Minute, x.Second);
+				printDateTime(x);
 			}
 			else
 				Serial.println(F("No clock"));
@@ -112,9 +124,7 @@ byte SerialDataEvent::ProcessCommand()
 		}
 		else if (cmd[1] == 'n')
 		{
-			tmElements_t x;
-			breakTime(now(), x);
-			fprintf_P(&uartout, PSTR("%d-%02d-%02d %02d:%02d:%02d\n"), tmYearToCalendar(x.Year), x.Month, x.Day, x.Hour, x.Minute, x.Second);
+			printDateTime(now());
 			return 0;
 		}
 		else if (cmd[1] == 'w')
@@ -139,6 +149,24 @@ byte SerialDataEvent::ProcessCommand()
 			x.Second = atoi(cmd + arg);
 			arg = nextarg;
 			DS1307RTC::write(x);
+			time_t t = makeTime(x);
+			RTC.put(0x10, t); // epoc
+			return 0;
+		}
+		else if (cmd[1] == 'd')
+		{ // drift - secs per day
+			int16_t drift = atoi(cmd + arg);
+			RTC.put(0x14, drift);
+			return 0;
+		}
+		else if (cmd[1] == 's')
+		{
+			time_t epoc;
+			uint16_t drift;
+			RTC.get(0x10, epoc);
+			RTC.get(0x14, drift);
+			fprintf_P(&uartout, PSTR("Drfit=%d Epoc="), drift);
+			printDateTime(epoc);
 			return 0;
 		}
 		else if (cmd[1] == 't')
@@ -241,8 +269,15 @@ byte SerialDataEvent::ProcessCommand()
 	{
 		if (cmd[1] == 's')
 		{
-			if (strlen(cmd+arg) > 32 ) return 1;
+			if (strlen(cmd + arg) > 32) return 1;
 			OtpSave(cmd + arg);
+			return 0;
+		}
+		else if (cmd[1] == 'b')
+		{
+			long start = millis();
+			OtpInit();
+			fprintf_P(&uartout, PSTR("Elapsed=%d\n"), millis() - start);
 			return 0;
 		}
 	}

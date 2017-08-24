@@ -73,6 +73,15 @@ void test()
 time_t getTinyRTCTime()
 {
 	time_t t = RTC.get();
+	time_t epoc;
+	int16_t secPerDay;
+	RTC.get(0x10, epoc);
+	RTC.get(0x14, secPerDay);
+	//fprintf_P(&uartout, PSTR("Epoc=%ld\n"), epoc);
+	if (epoc != 0xffffffff && epoc != 0)
+	{
+		t += (secPerDay * ((t - epoc)/864)) / 100;
+	}
 	return t;
 }
 
@@ -104,12 +113,15 @@ void setup()
 	fdev_setup_stream(&uartout, uart_putchar, NULL, _FDEV_SETUP_WRITE);
 
 	setSyncProvider(getTinyRTCTime);
+	setSyncInterval(60);
+
+	OtpInit();
 
 	Alarm.alarmRepeat(0, 0, 5, Midnight);
 	Alarm.alarmRepeat(16, 0, 5, Afternoon);
 
 	char *key = "HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ";
-	uint32_t code = GetTOTPCode(key, now() - 3600);
+	uint32_t code = GetTOTPCode(key, now());
 	fprintf_P(&uartout, PSTR("Code=%ld\n"), code);
 
   /* add setup code here */

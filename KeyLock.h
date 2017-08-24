@@ -17,8 +17,6 @@ void RemoveCard(unsigned long cardId);
 bool CheckCard(unsigned long cardId);
 unsigned long GetCard(uint8_t index);
 uint8_t GetCardCount();
-
-
 bool CheckCode(int32_t code);
 
 extern FILE uartout;
