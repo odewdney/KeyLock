@@ -17,6 +17,32 @@ defineTimerRun(refreshAlarm,  1000)
 	Alarm.delay(0);
 }
 
+int audit_putchar(char c, FILE* file)
+{
+	void *p = fdev_get_udata(file);
+	Serial.print(c);
+	fdev_set_udata(file, p);
+	return 0;
+}
+
+void audit_flush(FILE *file)
+{
+	void *p = fdev_get_udata(file);
+}
+
+FILE auditout = FDEV_SETUP_STREAM(audit_putchar, null, _FDEV_SETUP_WRITE);
+
+void audit(const __FlashStringHelper *szMsg, ...)
+{
+	tmElements_t e;
+	breakTime(now(), e);
+	fprintf_P(&auditout, PSTR("%d-%02d-%02d %02d:%02d:%02d: "), tmYearToCalendar(x.Year), x.Month, x.Day, x.Hour, x.Minute, x.Second);
+	va_list va;
+  	va_start(va, szMsg);
+	vfprintf_P(&auditout, szMsg, va);
+	va_end(va);
+	audit_flush(&auditout);
+}
 
 
 /*
@@ -104,7 +130,7 @@ FILE uartout = { 0 };
 static int uart_putchar(char c, FILE *stream)
 {
 	Serial.write(c);
-	return c;
+	return 0;
 }
 
 void setup()
