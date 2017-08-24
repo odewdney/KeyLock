@@ -209,24 +209,28 @@ bool OtpCheck(uint32_t code)
 	fprintf_P(&uartout, PSTR("looking for code %ld"), code);
 
 	EEPROM.get(90, key);
-	t = previousMidnight(t);
+	time_t tday = previousMidnight(t);
 
 	for (int8_t s = 0; s >= -14; s--)
 	{
 		struct timeWindow w;
-		w.start = t + s * SECS_PER_DAY + 15 * SECS_PER_HOUR;
+		w.start = tday + s * SECS_PER_DAY + 15 * SECS_PER_HOUR;
 		if (SummerTime(w.start)) // convert to gmt
 			w.start -= 3600;
+		if ( w.start > t )
+			continue;
 		for (int8_t e = 0; (e - s) <= 14; e++)
 		{
-			w.end = t + e * SECS_PER_DAY + 11 * SECS_PER_HOUR;
+			w.end = tday + e * SECS_PER_DAY + 11 * SECS_PER_HOUR;
 			if (SummerTime(w.end))
 				w.end -= 3600;
+			if ( w.end < t )
+				continue;
 			uint32_t OTPcode = GetTOTPCode(key, 20, (uint8_t*)&w, 8);
-			fprintf_P(&uartout, PSTR("%d %d %ld\n"), s, e, OTPcode);
+			//fprintf_P(&uartout, PSTR("%d %d %ld\n"), s, e, OTPcode);
 			if (OTPcode == code)
 			{
-				Serial.println(F("FOund"));
+				Serial.println(F("Found"));
 				cacheWindow = w;
 				cacheCode = code;
 				return true;
