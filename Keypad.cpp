@@ -7,7 +7,7 @@
 #include "KeyLock.h"
 #include "CardData.h"
 #include "otp.h"
-
+#include "audit.h"
 WIEGAND wg;
 
 
@@ -24,6 +24,7 @@ void keypadEventClass::setup()
 
 int32_t code = 0;
 int8_t codecnt = 0;
+unsigned long lastkey = 0;
 
 void keypadEventClass::run()
 {
@@ -37,11 +38,22 @@ void keypadEventClass::run()
 	*/
 	if (wg.getWiegandType() == 26)
 	{
-		if (CardStore.CheckCode(wg.getCode()))
+		unsigned long fob = wg.getCode();
+		if (CardStore.CheckCode(fob))
+		{
+			audit(F("FobOpen %ld"), fob);
 			OpenDoor();
+		}
 	}
 	else if (wg.getWiegandType() == 4)
 	{
+		unsigned long nowmilli = millis();
+		if ((nowmilli - lastkey) > 6000)
+		{
+			code = 0;
+			codecnt = 0;
+		}
+		lastkey = nowmilli;
 		int8_t key = wg.getCode();
 		if (key >= 0 && key <= 9)
 		{
@@ -49,14 +61,19 @@ void keypadEventClass::run()
 			if (codecnt < 8)
 				codecnt++;
 		}
-		else if (key == 13)
+		else if (key == 13 || key == 27) // # or *
 		{
 			if (codecnt >= 4)
 			{
-				if (KeyStore.CheckCode(code + codecnt * 100000000))
-					OpenDoor();
-				else if (OtpCheck(code + codecnt * 100000000))
+				code += codecnt * 100000000;
+				if (KeyStore.CheckCode(code))
 				{
+					audit(F("KeyOpen %ld"), code);
+					OpenDoor();
+				}
+				else if (OtpCheck(code))
+				{
+					audit(F("OtpOpen %ld"), code);
 					OpenDoor();
 				}
 			}

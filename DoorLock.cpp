@@ -16,8 +16,8 @@ void doorLock::setup()
 
 	pinMode(DOORLOCK, OUTPUT);
 	digitalWrite(DOORLOCK, DOORLOCK_LOCK);
-	pinMode(DOORLOCK_LED, INPUT_PULLUP);
-	digitalWrite(DOORLOCK_LED, HIGH);
+	pinMode(DOORLOCK_LED, OUTPUT);
+	digitalWrite(DOORLOCK_LED, LOW);
 }
 
 void doorLock::run()
@@ -26,24 +26,23 @@ void doorLock::run()
 	{
 //		Serial.println(F("Door led"));
 		cnt--;
-		digitalWrite(DOORLOCK_LED, LOW);
+		digitalWrite(DOORLOCK_LED, HIGH);
 		pinMode(DOORLOCK_LED, OUTPUT);
 		return;
 	}
 	// switch off relay
 	digitalWrite(DOORLOCK, DOORLOCK_LOCK);
-	pinMode(DOORLOCK_LED, INPUT_PULLUP);
-	digitalWrite(DOORLOCK_LED, HIGH);
+	digitalWrite(DOORLOCK_LED, LOW);
 	//	Serial.println(F("Door Locked"));
-	schedule(1000, 0);
+	schedule(500, 0);
 }
 
 void doorLock::open()
 {
-	cnt = 1;
+	cnt = 2;
 	digitalWrite(DOORLOCK, DOORLOCK_UNLOCK);
 //	Serial.println(F("Door Unlocked"));
-	schedule(1000);
+	schedule(500);
 }
 
 doorLock doorLock;

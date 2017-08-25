@@ -2,8 +2,8 @@
 #define WIEGAND_1 3
 
 #define DOORLOCK 5
-#define DOORLOCK_LOCK HIGH
-#define DOORLOCK_UNLOCK LOW
+#define DOORLOCK_LOCK LOW
+#define DOORLOCK_UNLOCK HIGH
 #define DOORLOCK_LED 6
 
 #define ONE_WIRE 4
@@ -21,4 +21,3 @@ bool CheckCode(int32_t code);
 
 extern FILE uartout;
 
-void audit(const __FlashStringHelper *szMsg, ...);

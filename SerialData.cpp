@@ -14,6 +14,7 @@
 
 #include "CardData.h"
 #include "otp.h"
+#include "audit.h"
 
 OneWire oneWire(ONE_WIRE);
 DallasTemperature tempSensor(&oneWire);
@@ -281,6 +282,24 @@ byte SerialDataEvent::ProcessCommand()
 			return 0;
 		}
 	}
+	else if (cmd[0] == 'a')
+	{
+		if (cmd[1] == 'p')
+		{
+			printAudit();
+			return 0;
+		}
+		else if (cmd[1] == 'r')
+		{
+			auditReset();
+			return 0;
+		}
+		else if (cmd[1] == 'a')
+		{
+			audit(F("%s"), cmd + arg);
+			return 0;
+		}
+	}
 	return 2;
 }
 
@@ -291,7 +310,7 @@ SerialDataEvent::SerialDataEvent() : SCoopEvent()
 
 void SerialDataEvent::setup()
 {
-	Serial.begin(115200);
+//	Serial.begin(115200);
 	Serial.println(F("sw_init"));
 }
 

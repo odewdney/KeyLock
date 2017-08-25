@@ -1,47 +1,20 @@
+#include "audit.h"
 #include <EEPROM.h>
 //#include "CardData.h"
 //#include "Keypad.h"
 //#include "DoorLock.h"
 //#include <sha1.h>
-#include <Eeprom24C32_64.h>
 #include <Time.h>
 #include <TimeAlarms.h>
 #include <DS1307RTC.h>
 #include <SCoop.h>
 #include "KeyLock.h"
 #include "otp.h"
-
+#include "audit.h"
 
 defineTimerRun(refreshAlarm,  1000)
 {
 	Alarm.delay(0);
-}
-
-int audit_putchar(char c, FILE* file)
-{
-	void *p = fdev_get_udata(file);
-	Serial.print(c);
-	fdev_set_udata(file, p);
-	return 0;
-}
-
-void audit_flush(FILE *file)
-{
-	void *p = fdev_get_udata(file);
-}
-
-FILE auditout = FDEV_SETUP_STREAM(audit_putchar, null, _FDEV_SETUP_WRITE);
-
-void audit(const __FlashStringHelper *szMsg, ...)
-{
-	tmElements_t e;
-	breakTime(now(), e);
-	fprintf_P(&auditout, PSTR("%d-%02d-%02d %02d:%02d:%02d: "), tmYearToCalendar(x.Year), x.Month, x.Day, x.Hour, x.Minute, x.Second);
-	va_list va;
-  	va_start(va, szMsg);
-	vfprintf_P(&auditout, szMsg, va);
-	va_end(va);
-	audit_flush(&auditout);
 }
 
 
@@ -141,14 +114,18 @@ void setup()
 	setSyncProvider(getTinyRTCTime);
 	setSyncInterval(60);
 
-	OtpInit();
+	audit(F("Boot"));
 
-	Alarm.alarmRepeat(0, 0, 5, Midnight);
-	Alarm.alarmRepeat(16, 0, 5, Afternoon);
+	//OtpInit();
+
+	//Alarm.alarmRepeat(0, 0, 5, Midnight);
+	//Alarm.alarmRepeat(16, 0, 5, Afternoon);
 
 	char *key = "HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ";
 	uint32_t code = GetTOTPCode(key, now());
 	fprintf_P(&uartout, PSTR("Code=%ld\n"), code);
+
+	//audit(F("Code = %06ld"), code);
 
   /* add setup code here */
 	mySCoop.start();
