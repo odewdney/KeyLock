@@ -198,6 +198,8 @@ bool OtpCheck(uint32_t code)
 	if ((code / 100000000) != 6)
 		return false;
 	code = code % 1000000;
+	
+	// check one time code
 	time_t t = now();
 	for (int8_t n = -2; n <= 2; n++)
 	{
@@ -208,14 +210,26 @@ bool OtpCheck(uint32_t code)
 	if (t > cacheWindow.start && t < cacheWindow.end && code == cacheCode)
 		return true;
 
-	fprintf_P(&uartout, PSTR("looking for code %ld"), code);
+	//fprintf_P(&uartout, PSTR("looking for code %ld"), code);
 
 	EEPROM.get(90, key);
 	time_t tday = previousMidnight(t);
 
+	struct timeWindow w;
+	
+	// check daily code
+	w.start = tday;
+	if (SummerTime(w.start)) // convert to gmt
+		w.start -= 3600;
+	w.end = w.start + SECS_PER_DAY;
+	if ( GetTOTPCode(key, 20, (uint8_t*)&w, 8) == code )
+	{
+		return true;
+	}
+	
+	// check nights code
 	for (int8_t s = 0; s >= -14; s--)
 	{
-		struct timeWindow w;
 		w.start = tday + s * SECS_PER_DAY + 15 * SECS_PER_HOUR;
 		if (SummerTime(w.start)) // convert to gmt
 			w.start -= 3600;
