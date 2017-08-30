@@ -6,7 +6,11 @@
 #include "Time.h"
 #include <Eeprom24C32_64.h>
 
+#ifdef DS1307
 Eeprom24C32_64 eeprom(0x50);
+#else
+Eeprom24C32_64 eeprom(0x57);
+#endif
 extern FILE uartout;
 
 struct auditState
@@ -98,7 +102,7 @@ void printAudit()
 	{
 		byte c = eeprom.readByte(n);
 		if (c > 0 && c < 0xff)
-			Serial.print((char)c);
+			fputc((char)c, &uartout);
 	}
 }
 

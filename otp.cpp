@@ -82,14 +82,16 @@ int16_t toBase32(const uint8_t *in, int16_t len, char* out)
 
 void printHash(const uint8_t* hash, uint8_t len)
 {
-	const static char hex[] = "0123456789abcdef";
+	//const static char hex[] = "0123456789abcdef";
 	uint8_t i;
 	for (i = 0; i<len; i++) {
-		Serial.print(hex[hash[i] >> 4]);
-		Serial.print(hex[hash[i] & 0xf]);
-		Serial.print("-");
+		if (i > 0) fputc('-', &uartout);
+		fprintf_P(&uartout, "%02x", hash[i]);
+		//Serial.print(hex[hash[i] >> 4]);
+		//Serial.print(hex[hash[i] & 0xf]);
+		//Serial.print("-");
 	}
-	Serial.println();
+	fputc('\n', &uartout);
 }
 
 uint32_t GetTOTPCode(const char*key, time_t time)
@@ -230,7 +232,7 @@ bool OtpCheck(uint32_t code)
 			//fprintf_P(&uartout, PSTR("%d %d %ld\n"), s, e, OTPcode);
 			if (OTPcode == code)
 			{
-				Serial.println(F("Found"));
+				fputs_P(PSTR("Found"), &uartout);
 				cacheWindow = w;
 				cacheCode = code;
 				return true;

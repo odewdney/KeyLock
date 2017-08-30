@@ -6,7 +6,8 @@
 //#include <sha1.h>
 #include <Time.h>
 #include <TimeAlarms.h>
-#include <DS1307RTC.h>
+//#include <DS1307RTC.h>
+#include <DS3232RTC.h>
 #include <SCoop.h>
 #include "KeyLock.h"
 #include "otp.h"
@@ -72,6 +73,7 @@ void test()
 time_t getTinyRTCTime()
 {
 	time_t t = RTC.get();
+#ifdef DS1307
 	time_t epoc;
 	int16_t secPerDay;
 	RTC.get(0x10, epoc);
@@ -81,20 +83,19 @@ time_t getTinyRTCTime()
 	{
 		t += (secPerDay * ((t - epoc)/864)) / 100;
 	}
+#endif
 	return t;
 }
 
 void Midnight()
 {
-	Serial.print("alarm-midnight:");
-	Serial.println(now());
+	fprintf_P(&uartout, PSTR("alarm-midnight:%ld\n"), now());
 }
 
 
 void Afternoon()
 {
-	Serial.print("alarm-afternoon:");
-	Serial.println(now());
+	fprintf_P(&uartout, PSTR("alarm-afternoon:%ld\n"), now());
 }
 
 
@@ -108,7 +109,8 @@ static int uart_putchar(char c, FILE *stream)
 
 void setup()
 {
-	Serial.begin(115200);
+//	Serial.begin(115200);
+	Serial.begin(9600);
 	fdev_setup_stream(&uartout, uart_putchar, NULL, _FDEV_SETUP_WRITE);
 
 	setSyncProvider(getTinyRTCTime);

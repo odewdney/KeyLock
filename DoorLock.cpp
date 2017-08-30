@@ -12,7 +12,7 @@ doorLock::doorLock() : SCoopTimer()
 
 void doorLock::setup()
 {
-	Serial.println(F("doorlock Setup"));
+	fprintf_P(&uartout, PSTR("doorlock Setup\n"));
 
 	pinMode(DOORLOCK, OUTPUT);
 	digitalWrite(DOORLOCK, DOORLOCK_LOCK);

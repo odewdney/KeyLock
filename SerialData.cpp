@@ -7,7 +7,8 @@
 
 #include <DallasTemperature.h>
 #include <Time.h>
-#include <DS1307RTC.h>
+//#include <DS1307RTC.h>
+#include <ds3232rtc.h>
 
 #include <DallasTemperature.h>
 #include <OneWire.h>
@@ -47,16 +48,16 @@ void PrintMsg(byte b)
 	switch (b)
 	{
 	default:
-		Serial.println(b);
+		fprintf_P(&uartout, "Err=%d\n", b);
 		break;
 	case 0:
-		Serial.println(F("OK"));
+		fputs_P(PSTR("OK\n"), &uartout);
 		break;
 	case 1:
-		Serial.println(F("Err"));
+		fputs_P(PSTR("Err\n"), &uartout);
 		break;
 	case 2:
-		Serial.println(F("Unk"));
+		fputs_P(PSTR("Unk\n"), &uartout);
 		break;
 
 	}
@@ -112,15 +113,19 @@ byte SerialDataEvent::ProcessCommand()
 		if (cmd[1] == 'r')
 		{
 			tmElements_t x;
-			bool f = DS1307RTC::read(x);
+			bool f = RTC.read(x);
+#ifdef DS1307
 			if (f || DS1307RTC::chipPresent)
 			{
 				if (!f)
-					Serial.println(F("Clock stopped"));
+					fputs_P(PSTR("Clock stopped\n"), &uartout);
 				printDateTime(x);
 			}
 			else
-				Serial.println(F("No clock"));
+				fputs_P(PSTR("No clock\n"), &uartout);
+#else
+			printDateTime(x);
+#endif
 			return 0;
 		}
 		else if (cmd[1] == 'n')
@@ -149,11 +154,14 @@ byte SerialDataEvent::ProcessCommand()
 			nextarg = nextToken(arg);
 			x.Second = atoi(cmd + arg);
 			arg = nextarg;
-			DS1307RTC::write(x);
+			RTC.write(x);
+#ifdef DS1307
 			time_t t = makeTime(x);
 			RTC.put(0x10, t); // epoc
+#endif
 			return 0;
 		}
+#ifdef DS1307
 		else if (cmd[1] == 'd')
 		{ // drift - secs per day
 			int16_t drift = atoi(cmd + arg);
@@ -183,7 +191,15 @@ byte SerialDataEvent::ProcessCommand()
 			fprintf_P(&uartout, PSTR("Temp=%d\n"),t);
 			return 0;
 		}
-
+#else
+		else if (cmd[1] == 't')
+		{
+			int t = RTC.temperature();
+			t /= 4;
+			fprintf_P(&uartout, PSTR("Temp=%d\n"), t);
+			return 0;
+		}
+#endif
 	}
 	else if (cmd[0] == 'd')
 	{
@@ -311,7 +327,7 @@ SerialDataEvent::SerialDataEvent() : SCoopEvent()
 void SerialDataEvent::setup()
 {
 //	Serial.begin(115200);
-	Serial.println(F("sw_init"));
+	fprintf_P(&uartout, PSTR("sw_init\n"));
 }
 
 void SerialDataEvent::run()
@@ -324,7 +340,7 @@ void SerialDataEvent::run()
 		{
 			if (cmdCnt > 0)
 			{
-				Serial.println();
+				fputc('\n', &uartout);
 				cmd[cmdCnt] = 0;
 				byte r = ProcessCommand();
 				PrintMsg(r);
@@ -335,7 +351,7 @@ void SerialDataEvent::run()
 		{
 			if (cmdCnt > 0)
 			{
-				Serial.print(F("\b \b"));
+				fputs_P(PSTR("\b \b"), &uartout);
 				cmdCnt--;
 			}
 		}
@@ -346,7 +362,7 @@ void SerialDataEvent::run()
 				if (cmdCnt < sizeof(cmd)-1)
 				{
 					cmd[cmdCnt++] = c;
-					Serial.print((char)c);
+					fputc((char)c, &uartout);
 				}
 			}
 		}
