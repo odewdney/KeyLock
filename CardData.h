@@ -32,5 +32,9 @@ public:
 extern CodeStore CardStore;
 extern CodeStore KeyStore;
 
+void SavePass(uint32_t code);
+bool CheckPass(uint32_t code);
+
+
 #endif
 

@@ -85,7 +85,8 @@ byte SerialDataEvent::ProcessCommand()
 	{
 		if (cmd[1] == 'i')
 		{
-			if (strcmp(cmd + arg, "123") == 0)
+			uint32_t code = atol(cmd + arg);
+			if (CheckPass(code))
 			{
 				logout.set(30000);
 				return 0;
@@ -107,8 +108,16 @@ byte SerialDataEvent::ProcessCommand()
 
 	// log - clear, log, display
 	// rtc read, set
-
-	if (cmd[0] == 'x')
+	if (cmd[0] == 'l')
+	{
+		if (cmd[1] == 's')
+		{
+			uint32_t code = atol(cmd + arg);
+			SavePass(code);
+			return 0;
+		}
+	}
+	else if (cmd[0] == 'x')
 	{
 		if (cmd[1] == 'r')
 		{
@@ -295,6 +304,18 @@ byte SerialDataEvent::ProcessCommand()
 			long start = millis();
 			OtpInit();
 			fprintf_P(&uartout, PSTR("Elapsed=%d\n"), millis() - start);
+			return 0;
+		}
+		else if (cmd[1] == 'c')
+		{
+			unsigned long code = atol(cmd + arg);
+			if (code == 0)
+				return 1;
+			int l = strlen(cmd + arg);
+			if (l < 4)
+				return 1;
+			code += 100000000 * l;
+			fprintf_P(&uartout, PSTR("Check=%d\n"), OtpCheck(code));
 			return 0;
 		}
 	}

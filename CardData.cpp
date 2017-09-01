@@ -15,6 +15,28 @@
 #define KEY_DATA 43
 #define KEY_MAX 10
 
+// max key = 42 - 83
+
+// passwd 86
+#define PASSWD 86
+// key - 90
+
+void SavePass(uint32_t code)
+{
+	EEPROM.put(PASSWD, code);
+}
+
+bool CheckPass(uint32_t code)
+{
+	uint32_t pass;
+	EEPROM.get(PASSWD, pass);
+	if (pass == 0 || pass == 0xffffffff)
+		pass = 123;
+	if (pass == code)
+		return true;
+	return false;
+}
+
 CodeStore CardStore(CARD_OFFSET, CARD_MAX);
 CodeStore KeyStore(KEY_OFFSET, KEY_MAX);
 

@@ -170,22 +170,36 @@ bool SummerTime(const tmElements_t &e)
 void OtpInit()
 {
 	EEPROM.get(90, key);
-	time_t t = now();
-	t = previousMidnight(t);
 
-	for (int8_t s = -14; s <= 0; s++)
+	time_t t = now();
+	time_t tday = previousMidnight(t);
+
+	struct timeWindow w;
+	// check daily code
+	w.start = tday;
+	if (SummerTime(w.start)) // convert to gmt
+		w.start -= 3600;
+	w.end = w.start + SECS_PER_DAY;
+	uint32_t code = GetTOTPCode(key, 20, (uint8_t*)&w, 8);
+	fprintf_P(&uartout, PSTR("Daily=%lu %lu %lu\n"), w.start, w.end, code);
+
+	// check nights code
+	for (int8_t s = 0; s >= -14; s--)
 	{
-		struct timeWindow w;
-		w.start = t + s * SECS_PER_DAY + 15 * SECS_PER_HOUR;
+		w.start = tday + s * SECS_PER_DAY + 15 * SECS_PER_HOUR;
 		if (SummerTime(w.start)) // convert to gmt
 			w.start -= 3600;
+		if (w.start > t)
+			continue;
 		for (int8_t e = 0; (e - s) <= 14; e++)
 		{
-			w.end = t + e * SECS_PER_DAY + 11 * SECS_PER_HOUR;
+			w.end = tday + e * SECS_PER_DAY + 11 * SECS_PER_HOUR;
 			if (SummerTime(w.end))
 				w.end -= 3600;
-			uint32_t code = GetTOTPCode(key, 20, (uint8_t*)&w, 8);
-			fprintf_P(&uartout, PSTR("%d %d %ld\n"), s, e, code);
+			if (w.end < t)
+				continue;
+			uint32_t OTPcode = GetTOTPCode(key, 20, (uint8_t*)&w, 8);
+			fprintf_P(&uartout, PSTR("%lu %lu %lu\n"), w.start, w.end, OTPcode);
 		}
 	}
 }
@@ -198,7 +212,9 @@ bool OtpCheck(uint32_t code)
 	if ((code / 100000000) != 6)
 		return false;
 	code = code % 1000000;
-	
+
+	EEPROM.get(90, key);
+
 	// check one time code
 	time_t t = now();
 	for (int8_t n = -2; n <= 2; n++)
@@ -212,7 +228,6 @@ bool OtpCheck(uint32_t code)
 
 	//fprintf_P(&uartout, PSTR("looking for code %ld"), code);
 
-	EEPROM.get(90, key);
 	time_t tday = previousMidnight(t);
 
 	struct timeWindow w;
